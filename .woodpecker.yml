@@ -1,0 +1,11 @@
+pipeline:
+  build:
+    image: rust:1.58
+    commands:
+      - cargo build
+  lint:
+    image: rust:1.58
+    commands:
+      - rustup component add rustfmt clippy
+      - cargo fmt -- --check --files-with-diff
+      - cargo clippy --no-deps --tests

@@ -1,0 +1,75 @@
+use std::{env, process};
+
+const RUNE_NAMES: [&str; 20] = [
+    "Golden Rune [1]",
+    "Golden Rune [2]",
+    "Golden Rune [3]",
+    "Golden Rune [4]",
+    "Golden Rune [5]",
+    "Golden Rune [6]",
+    "Golden Rune [7]",
+    "Golden Rune [8]",
+    "Golden Rune [9]",
+    "Golden Rune [10]",
+    "Golden Rune [11]",
+    "Golden Rune [12]",
+    "Golden Rune [13]",
+    "Numen's Rune",
+    "Hero's Rune [1]",
+    "Hero's Rune [2]",
+    "Hero's Rune [3]",
+    "Hero's Rune [4]",
+    "Hero's Rune [5]",
+    "Lord's Rune",
+];
+const RUNE_VALUES: [u32; 20] = [
+    200, 400, 800, 1200, 1600, 2000, 2500, 3000, 3800, 5000, 6250, 7500, 10000,
+    12500, 15000, 20000, 25000, 30000, 35000, 50000,
+];
+
+fn main() {
+    let (have, want) = process_args();
+    assert!(want > have);
+    println!("You have {have} runes, and you want {want} runes, right?");
+    let mut need = want - have;
+    let mut counts = [0u32; 20];
+    while need > 0 {
+        // TODO: store index of last find and use that to slice RUNE_VALUES before searching
+        let (index, val) = RUNE_VALUES
+            .iter()
+            .enumerate()
+            .rfind(|(_, val)| **val < need)
+            .unwrap_or((0, &200));
+        counts[index] += 1;
+        need = need.saturating_sub(*val);
+    }
+    println!("You need these: {counts:?}");
+}
+
+// Exits program instead of failing
+fn process_args() -> (u32, u32) {
+    let args = env::args().skip(1).take(4).collect::<Vec<_>>();
+    if args.len() != 4 {
+        eprintln!("Too short\nUsage: use_runes have [number] want [number]");
+        process::exit(1);
+    }
+    let mut have = None;
+    let mut want = None;
+    for chunk in args.chunks_exact(2) {
+        match chunk {
+            [opcode, operand] => match opcode.as_str() {
+                "have" => have = operand.parse().ok(),
+                "want" => want = operand.parse().ok(),
+                _ => {}
+            },
+            _ => unreachable!("chunks_exact was not exact"),
+        }
+    }
+    match (have, want) {
+        (Some(have), Some(want)) => (have, want),
+        _ => {
+            eprintln!("Not both\nUsage: use_runes have [number] want [number]");
+            process::exit(1);
+        }
+    }
+}
