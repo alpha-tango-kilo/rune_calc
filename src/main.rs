@@ -43,7 +43,7 @@ fn main() {
         counts[index] += 1;
         need = need.saturating_sub(*val);
     }
-    println!("You need these: {counts:?}");
+    println!("{}", format_output(&counts));
 }
 
 // Exits program instead of failing
@@ -72,4 +72,20 @@ fn process_args() -> (u32, u32) {
             process::exit(1);
         }
     }
+}
+
+fn format_output(counts: &[u32; 20]) -> String {
+    let mut buf = String::from("You will need:");
+    counts
+        .iter()
+        .enumerate()
+        .rev() // Give runes biggest to smallest
+        .filter(|(_, count)| **count > 0)
+        .for_each(|(index, count)| {
+            buf.push_str("\n - ");
+            buf.push_str(&count.to_string());
+            buf.push_str("x ");
+            buf.push_str(RUNE_NAMES[index]);
+        });
+    buf
 }
