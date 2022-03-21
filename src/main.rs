@@ -1,10 +1,10 @@
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::ops::{Deref, DerefMut};
-use anyhow::bail;
+use anyhow::{anyhow, bail, Context};
 use argh::FromArgs;
-use std::process;
-use std::path::PathBuf;
+use std::{fs, process};
+use std::path::{Path, PathBuf};
 
 const RUNE_NAMES: [&str; 20] = [
     "Golden Rune [1]",
@@ -115,6 +115,29 @@ impl RuneCount {
             });
         buf.pop(); // Removes final newline
         buf
+    }
+
+    fn load<P: AsRef<Path>>(path: P) -> anyhow::Result<Self> {
+        let contents = fs::read_to_string(path.as_ref())?;
+        let mut counts = RuneCount([0; 20]);
+        contents.lines()
+            .enumerate()
+            .try_for_each(|(line_no, line)| -> anyhow::Result<()> {
+                let (count, name) = line
+                    .split_once("x ")
+                    .context(anyhow!("line {line_no}: missing delimiter between quantity and rune name"))?;
+                let count = count
+                    .parse::<u32>()
+                    .context(anyhow!("line {line_no}: bad rune quantity"))?;
+                let (index, _) = RUNE_NAMES
+                    .iter()
+                    .enumerate()
+                    .find(|(_, rune)| **rune == name)
+                    .context(anyhow!("line {line_no}: couldn't match rune name"))?;
+                counts[index] += count;
+                Ok(())
+            })?;
+        Ok(counts)
     }
 }
 
