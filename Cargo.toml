@@ -11,6 +11,7 @@ repository = "https://codeberg.org/alpha-tango-kilo/elden_runes"
 
 [dependencies]
 anyhow = "1.0"
+argh = "0.1"
 
 [profile.release]
 lto = true

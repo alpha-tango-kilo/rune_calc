@@ -1,5 +1,7 @@
 use anyhow::bail;
-use std::{env, process};
+use argh::FromArgs;
+use std::process;
+use std::path::PathBuf;
 
 const RUNE_NAMES: [&str; 20] = [
     "Golden Rune [1]",
@@ -28,57 +30,79 @@ const RUNE_VALUES: [u32; 20] = [
     12500, 15000, 20000, 25000, 30000, 35000, 50000,
 ];
 
+#[derive(Debug, FromArgs)]
+/// Tells you the optimal rune items to use to reach your desired amount in Elden Ring
+struct WhatDo {
+    #[argh(subcommand)]
+    subcommand: DoThis,
+}
+
+#[derive(Debug, FromArgs)]
+#[argh(subcommand)]
+enum DoThis {
+    Init(Initialise),
+    Calc(Calculation),
+}
+
+#[derive(Debug, FromArgs)]
+#[argh(subcommand, name = "calc")]
+/// Perform a rune calculation
+struct Calculation {
+    /// how many runes you have
+    #[argh(option, short = 'h')]
+    have: u32,
+    /// how many runes you want to have
+    #[argh(option, short = 'w')]
+    want: u32,
+    /// where to get the runes file from (defaults to ./elden_runes)
+    #[argh(option, default = "default_path()")]
+    file: PathBuf,
+}
+
+impl Calculation {
+    fn run(&self) -> anyhow::Result<()> {
+        if self.have >= self.want {
+            bail!("you already have all the runes you need");
+        }
+        println!("You have {} runes, and you want {} runes, right?", self.have, self.want);
+        let mut need = self.want - self.have;
+        let mut counts = [0u32; 20];
+        while need > 0 {
+            // TODO: store index of last find and use that to slice RUNE_VALUES before searching
+            let (index, val) = RUNE_VALUES
+                .iter()
+                .enumerate()
+                .rfind(|(_, val)| **val < need)
+                .unwrap_or((0, &200));
+            counts[index] += 1;
+            need = need.saturating_sub(*val);
+        }
+        println!("{}", format_output(&counts));
+        Ok(())
+    }
+}
+
+#[derive(Debug, FromArgs)]
+#[argh(subcommand, name = "init")]
+/// Initialise a new elden_runes file
+struct Initialise {}
+
+impl Initialise {
+    fn run(&self) -> anyhow::Result<()> {
+        todo!()
+    }
+}
+
 fn main() {
-    if let Err(why) = _main() {
+    use DoThis::*;
+    let what_do: WhatDo = argh::from_env();
+    let result = match what_do.subcommand {
+        Init(init) => init.run(),
+        Calc(calc) => calc.run(),
+    };
+    if let Err(why) = result {
         eprintln!("Error: {why}");
         process::exit(1);
-    }
-}
-
-fn _main() -> anyhow::Result<()> {
-    let (have, want) = process_args()?;
-    if have >= want {
-        bail!("you already have all the runes you need");
-    }
-    println!("You have {have} runes, and you want {want} runes, right?");
-    let mut need = want - have;
-    let mut counts = [0u32; 20];
-    while need > 0 {
-        // TODO: store index of last find and use that to slice RUNE_VALUES before searching
-        let (index, val) = RUNE_VALUES
-            .iter()
-            .enumerate()
-            .rfind(|(_, val)| **val < need)
-            .unwrap_or((0, &200));
-        counts[index] += 1;
-        need = need.saturating_sub(*val);
-    }
-    println!("{}", format_output(&counts));
-    Ok(())
-}
-
-fn process_args() -> anyhow::Result<(u32, u32)> {
-    let args = env::args().skip(1).take(4).collect::<Vec<_>>();
-    if args.len() != 4 {
-        bail!("bad args\nUsage: use_runes have [number] want [number]");
-    }
-    let mut have = None;
-    let mut want = None;
-    for chunk in args.chunks_exact(2) {
-        match chunk {
-            [opcode, operand] => match opcode.as_str() {
-                "have" => have = operand.parse().ok(),
-                "want" => want = operand.parse().ok(),
-                _ => {}
-            },
-            _ => unreachable!("chunks_exact was not exact"),
-        }
-    }
-    match (have, want) {
-        (Some(have), Some(want)) => Ok((have, want)),
-        _ => {
-            bail!("didn't specify haves and wants\nUsage: use_runes have [number] want [number]");
-        }
     }
 }
 
@@ -96,4 +120,8 @@ fn format_output(counts: &[u32; 20]) -> String {
             buf.push_str(RUNE_NAMES[index]);
         });
     buf
+}
+
+fn default_path() -> PathBuf {
+    PathBuf::from("./elden_runes")
 }
