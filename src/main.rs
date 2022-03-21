@@ -1,10 +1,10 @@
+use anyhow::{anyhow, bail, Context};
+use argh::FromArgs;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::ops::{Deref, DerefMut};
-use anyhow::{anyhow, bail, Context};
-use argh::FromArgs;
-use std::{fs, process};
 use std::path::{Path, PathBuf};
+use std::{fs, process};
 
 const RUNE_NAMES: [&str; 20] = [
     "Golden Rune [1]",
@@ -67,7 +67,10 @@ impl Calculation {
         if self.have >= self.want {
             bail!("you already have all the runes you need");
         }
-        println!("You have {} runes, and you want {} runes, right?", self.have, self.want);
+        println!(
+            "You have {} runes, and you want {} runes, right?",
+            self.have, self.want
+        );
         let mut need = self.want - self.have;
         let mut counts = RuneCount([0u32; 20]);
         while need > 0 {
@@ -101,8 +104,7 @@ impl RuneCount {
 
     fn format_as_list(&self) -> String {
         let mut buf = String::new();
-        self
-            .into_iter()
+        self.into_iter()
             .enumerate()
             .rev() // Give runes biggest to smallest
             .filter(|(_, count)| *count > 0)
