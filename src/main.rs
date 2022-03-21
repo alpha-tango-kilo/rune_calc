@@ -1,10 +1,10 @@
 use anyhow::{anyhow, bail, Context};
 use argh::FromArgs;
-use std::fs::OpenOptions;
-use std::io::Write;
+use std::fs::{File, OpenOptions};
+use std::io::{Read, Write};
 use std::ops::{Deref, DerefMut};
-use std::path::{Path, PathBuf};
-use std::{fs, process};
+use std::path::PathBuf;
+use std::process;
 
 const RUNE_NAMES: [&str; 20] = [
     "Golden Rune [1]",
@@ -71,10 +71,23 @@ impl Calculation {
             "You have {} runes, and you want {} runes, right?",
             self.have, self.want
         );
+        let inventory = match File::open(&self.file) {
+            Ok(mut handle) => RuneCount::load(&mut handle)?,
+            Err(_) => {
+                eprintln!("Warning: unable to read rune file");
+                RuneCount::default()
+            }
+        };
         let mut need = self.want - self.have;
+        let inv_total = inventory.total();
+        if inv_total < need {
+            let short = need - inv_total;
+            bail!("you don't have enough rune items to reach your target, you're {short} short")
+        }
         let mut counts = RuneCount([0u32; 20]);
         while need > 0 {
             // TODO: store index of last find and use that to slice RUNE_VALUES before searching
+            // TODO: account for inventory
             let (index, val) = RUNE_VALUES
                 .iter()
                 .enumerate()
@@ -119,8 +132,9 @@ impl RuneCount {
         buf
     }
 
-    fn load<P: AsRef<Path>>(path: P) -> anyhow::Result<Self> {
-        let contents = fs::read_to_string(path.as_ref())?;
+    fn load(read_handle: &mut File) -> anyhow::Result<Self> {
+        let mut contents = String::new();
+        read_handle.read_to_string(&mut contents)?;
         let mut counts = RuneCount([0; 20]);
         contents.lines()
             .enumerate()
@@ -154,6 +168,12 @@ impl Deref for RuneCount {
 impl DerefMut for RuneCount {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl Default for RuneCount {
+    fn default() -> Self {
+        RuneCount([u32::MAX; 20])
     }
 }
 
