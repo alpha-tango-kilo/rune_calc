@@ -1,3 +1,4 @@
+use anyhow::bail;
 use std::{env, process};
 
 const RUNE_NAMES: [&str; 20] = [
@@ -28,8 +29,17 @@ const RUNE_VALUES: [u32; 20] = [
 ];
 
 fn main() {
-    let (have, want) = process_args();
-    assert!(want > have);
+    if let Err(why) = _main() {
+        eprintln!("Error: {why}");
+        process::exit(1);
+    }
+}
+
+fn _main() -> anyhow::Result<()> {
+    let (have, want) = process_args()?;
+    if have >= want {
+        bail!("you already have all the runes you need");
+    }
     println!("You have {have} runes, and you want {want} runes, right?");
     let mut need = want - have;
     let mut counts = [0u32; 20];
@@ -44,14 +54,13 @@ fn main() {
         need = need.saturating_sub(*val);
     }
     println!("{}", format_output(&counts));
+    Ok(())
 }
 
-// Exits program instead of failing
-fn process_args() -> (u32, u32) {
+fn process_args() -> anyhow::Result<(u32, u32)> {
     let args = env::args().skip(1).take(4).collect::<Vec<_>>();
     if args.len() != 4 {
-        eprintln!("Too short\nUsage: use_runes have [number] want [number]");
-        process::exit(1);
+        bail!("bad args\nUsage: use_runes have [number] want [number]");
     }
     let mut have = None;
     let mut want = None;
@@ -66,10 +75,9 @@ fn process_args() -> (u32, u32) {
         }
     }
     match (have, want) {
-        (Some(have), Some(want)) => (have, want),
+        (Some(have), Some(want)) => Ok((have, want)),
         _ => {
-            eprintln!("Not both\nUsage: use_runes have [number] want [number]");
-            process::exit(1);
+            bail!("didn't specify haves and wants\nUsage: use_runes have [number] want [number]");
         }
     }
 }

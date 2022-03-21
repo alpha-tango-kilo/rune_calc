@@ -10,6 +10,7 @@ license = "GPL-3.0-only"
 repository = "https://codeberg.org/alpha-tango-kilo/elden_runes"
 
 [dependencies]
+anyhow = "1.0"
 
 [profile.release]
 lto = true
