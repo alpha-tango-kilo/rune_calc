@@ -1,3 +1,5 @@
+use std::fs::OpenOptions;
+use std::io::Write;
 use anyhow::bail;
 use argh::FromArgs;
 use std::process;
@@ -88,8 +90,17 @@ impl Calculation {
 struct Initialise {}
 
 impl Initialise {
+    const TEMPLATE: &'static str = include_str!("../elden_runes_template");
+
     fn run(&self) -> anyhow::Result<()> {
-        todo!()
+        let path = default_path();
+        let mut handle = OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .open(&path)?;
+        handle.write_all(Self::TEMPLATE.as_bytes())?;
+        eprintln!("Successfully created {}", path.to_string_lossy());
+        Ok(())
     }
 }
 
