@@ -1,5 +1,6 @@
 use std::fs::OpenOptions;
 use std::io::Write;
+use std::ops::{Deref, DerefMut};
 use anyhow::bail;
 use argh::FromArgs;
 use std::process;
@@ -68,7 +69,7 @@ impl Calculation {
         }
         println!("You have {} runes, and you want {} runes, right?", self.have, self.want);
         let mut need = self.want - self.have;
-        let mut counts = [0u32; 20];
+        let mut counts = RuneCount([0u32; 20]);
         while need > 0 {
             // TODO: store index of last find and use that to slice RUNE_VALUES before searching
             let (index, val) = RUNE_VALUES
@@ -79,7 +80,7 @@ impl Calculation {
             counts[index] += 1;
             need = need.saturating_sub(*val);
         }
-        println!("{}", format_output(&counts));
+        println!("You will need:\n{}", counts.format_as_list());
         Ok(())
     }
 }
@@ -88,6 +89,48 @@ impl Calculation {
 #[argh(subcommand, name = "init")]
 /// Initialise a new elden_runes file
 struct Initialise {}
+
+struct RuneCount([u32; 20]);
+
+impl RuneCount {
+    fn total(&self) -> u32 {
+        self.into_iter()
+            .zip(RUNE_VALUES)
+            .fold(0, |acc, (count, val)| acc + count * val)
+    }
+
+    fn format_as_list(&self) -> String {
+        let mut buf = String::new();
+        self
+            .into_iter()
+            .enumerate()
+            .rev() // Give runes biggest to smallest
+            .filter(|(_, count)| *count > 0)
+            .for_each(|(index, count)| {
+                buf.push_str("- ");
+                buf.push_str(&count.to_string());
+                buf.push_str("x ");
+                buf.push_str(RUNE_NAMES[index]);
+                buf.push('\n');
+            });
+        buf.pop(); // Removes final newline
+        buf
+    }
+}
+
+impl Deref for RuneCount {
+    type Target = [u32; 20];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for RuneCount {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
 
 impl Initialise {
     const TEMPLATE: &'static str = include_str!("../elden_runes_template");
@@ -115,22 +158,6 @@ fn main() {
         eprintln!("Error: {why}");
         process::exit(1);
     }
-}
-
-fn format_output(counts: &[u32; 20]) -> String {
-    let mut buf = String::from("You will need:");
-    counts
-        .iter()
-        .enumerate()
-        .rev() // Give runes biggest to smallest
-        .filter(|(_, count)| **count > 0)
-        .for_each(|(index, count)| {
-            buf.push_str("\n - ");
-            buf.push_str(&count.to_string());
-            buf.push_str("x ");
-            buf.push_str(RUNE_NAMES[index]);
-        });
-    buf
 }
 
 fn default_path() -> PathBuf {
