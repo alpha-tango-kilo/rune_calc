@@ -104,7 +104,24 @@ impl Calculation {
 #[derive(Debug, FromArgs)]
 #[argh(subcommand, name = "init")]
 /// Initialise a new elden_runes file
-struct Initialise {}
+struct Initialise {
+    #[argh(positional, default = "default_path()")]
+    path: PathBuf,
+}
+
+impl Initialise {
+    const TEMPLATE: &'static str = include_str!("../elden_runes_template");
+
+    fn run(&self) -> anyhow::Result<()> {
+        let mut handle = OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .open(&self.path)?;
+        handle.write_all(Self::TEMPLATE.as_bytes())?;
+        eprintln!("Successfully created {}", self.path.to_string_lossy());
+        Ok(())
+    }
+}
 
 struct RuneCount([u32; 20]);
 
@@ -174,21 +191,6 @@ impl DerefMut for RuneCount {
 impl Default for RuneCount {
     fn default() -> Self {
         RuneCount([u32::MAX; 20])
-    }
-}
-
-impl Initialise {
-    const TEMPLATE: &'static str = include_str!("../elden_runes_template");
-
-    fn run(&self) -> anyhow::Result<()> {
-        let path = default_path();
-        let mut handle = OpenOptions::new()
-            .create_new(true)
-            .write(true)
-            .open(&path)?;
-        handle.write_all(Self::TEMPLATE.as_bytes())?;
-        eprintln!("Successfully created {}", path.to_string_lossy());
-        Ok(())
     }
 }
 
