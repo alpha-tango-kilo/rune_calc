@@ -106,6 +106,20 @@ impl Calculation {
             counts[index] += 1;
             need = need.saturating_sub(*val);
         }
+        let need = self.want - self.have;
+        let current_solution_total = counts.total();
+        // If this is Some, we've found a more efficient single rune solution
+        if let Some((index, _)) =
+            RUNE_VALUES.iter().enumerate().rfind(|(index, val)| {
+                let have_it = inventory.has(*index);
+                let big_enough = **val >= need;
+                let more_efficient = **val < current_solution_total;
+                have_it && big_enough && more_efficient
+            })
+        {
+            counts = RuneCount::default();
+            counts[index] = 1;
+        }
         // TODO: update inventory if loaded from file
         Ok(counts)
     }
@@ -113,9 +127,16 @@ impl Calculation {
     fn without_inventory(&self) -> RuneCount {
         let mut need = self.want - self.have;
         let mut counts = RuneCount::default();
-        let mut last_index = 19;
+        let mut last_index = 20;
+        /*
+        Basic algorithm is find the biggest rune thats less than or equal to
+        need, and use one of those. Update need, repeat.
+        Shortcuts used:
+        - do not re-search the whole list of rune values each time, as we know
+        we need a smaller rune than the last iteration
+         */
         while need > 0 {
-            let (index, val) = RUNE_VALUES[..=last_index]
+            let (index, val) = RUNE_VALUES[..last_index]
                 .iter()
                 .enumerate()
                 .rfind(|(_, val)| **val <= need)
@@ -123,6 +144,21 @@ impl Calculation {
             last_index = index;
             counts[index] += 1;
             need = need.saturating_sub(*val);
+        }
+        /*
+        Now, to ensure optimality (I think), we see if there's a single rune
+        bigger than our target that's more efficient
+         */
+        let need = self.want - self.have;
+        let current_solution_total = counts.total();
+        // If this is Some, we've found a more efficient single rune solution
+        if let Some((index, _)) = RUNE_VALUES
+            .iter()
+            .enumerate()
+            .rfind(|(_, val)| **val >= need && **val < current_solution_total)
+        {
+            counts = RuneCount::default();
+            counts[index] = 1;
         }
         counts
     }
@@ -288,6 +324,19 @@ mod unit_tests {
         };
         let mut expected = RuneCount::default();
         expected[5] = 1;
+        assert_eq!(calc.without_inventory(), expected);
+    }
+
+    #[test]
+    fn larger_is_better() {
+        // Best you can do using only smaller runes is 2600 total, whereas
+        // there's a single rune you can use for 2500
+        let calc = Calculation {
+            want: 2450,
+            ..Default::default()
+        };
+        let mut expected = RuneCount::default();
+        expected[6] = 1;
         assert_eq!(calc.without_inventory(), expected);
     }
 }
