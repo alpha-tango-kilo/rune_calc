@@ -33,14 +33,14 @@ const RUNE_VALUES: [u32; 20] = [
     12500, 15000, 20000, 25000, 30000, 35000, 50000,
 ];
 
-#[derive(Debug, FromArgs)]
+#[derive(FromArgs)]
 /// Tells you the optimal rune items to use to reach your desired amount in Elden Ring
 struct WhatDo {
     #[argh(subcommand)]
     subcommand: DoThis,
 }
 
-#[derive(Debug, FromArgs)]
+#[derive(FromArgs)]
 #[argh(subcommand)]
 enum DoThis {
     Init(Initialise),
@@ -52,7 +52,7 @@ enum DoThis {
 /// Perform a rune calculation
 struct Calculation {
     /// how many runes you have
-    #[argh(option, short = 'h')]
+    #[argh(option, short = 'h', default = "0")]
     have: u32,
     /// how many runes you want to have
     #[argh(option, short = 'w')]
@@ -104,7 +104,7 @@ impl Calculation {
     }
 }
 
-#[derive(Debug, FromArgs)]
+#[derive(FromArgs)]
 #[argh(subcommand, name = "init")]
 /// Initialise a new elden_runes file
 struct Initialise {
