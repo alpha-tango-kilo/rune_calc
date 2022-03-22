@@ -3,6 +3,10 @@ pipeline:
     image: rust:1.58
     commands:
       - cargo build
+  test:
+    image: rust:1.58
+    commands:
+      - cargo test --no-fail-fast
   lint:
     image: rust:1.58
     commands:

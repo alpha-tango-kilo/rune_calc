@@ -71,13 +71,21 @@ impl Calculation {
             "You have {} runes, and you want {} runes, right?",
             self.have, self.want
         );
-        let inventory = match File::open(&self.file) {
-            Ok(mut handle) => RuneCount::load(&mut handle)?,
-            Err(_) => {
-                eprintln!("Warning: unable to read rune file");
-                RuneCount::default()
+        let outcome = match File::open(&self.file) {
+            Ok(mut handle) => {
+                let inventory = RuneCount::load(&mut handle)?;
+                self.with_inventory(inventory)?
             }
+            Err(_) => self.without_inventory(),
         };
+        println!("You need to use:\n{}", outcome.format_as_list());
+        Ok(())
+    }
+
+    fn with_inventory(
+        &self,
+        inventory: RuneCount,
+    ) -> anyhow::Result<RuneCount> {
         let mut need = self.want - self.have;
         let inv_total = inventory.total();
         if inv_total < need {
@@ -92,15 +100,41 @@ impl Calculation {
                 .iter()
                 .enumerate()
                 .filter(|(index, _)| inventory.has(*index))
-                .rfind(|(_, val)| **val < need)
+                .rfind(|(_, val)| **val <= need)
                 .unwrap_or((0, &200));
             last_index = index;
             counts[index] += 1;
             need = need.saturating_sub(*val);
         }
-        println!("You will need:\n{}", counts.format_as_list());
         // TODO: update inventory if loaded from file
-        Ok(())
+        Ok(counts)
+    }
+
+    fn without_inventory(&self) -> RuneCount {
+        let mut need = self.want - self.have;
+        let mut counts = RuneCount::default();
+        let mut last_index = 19;
+        while need > 0 {
+            let (index, val) = RUNE_VALUES[..=last_index]
+                .iter()
+                .enumerate()
+                .rfind(|(_, val)| **val <= need)
+                .unwrap_or((0, &200));
+            last_index = index;
+            counts[index] += 1;
+            need = need.saturating_sub(*val);
+        }
+        counts
+    }
+}
+
+impl Default for Calculation {
+    fn default() -> Self {
+        Calculation {
+            have: 0,
+            want: 0,
+            file: default_path(),
+        }
     }
 }
 
@@ -126,6 +160,8 @@ impl Initialise {
     }
 }
 
+#[derive(Copy, Clone, Default)]
+#[cfg_attr(test, derive(Debug, Eq, PartialEq))]
 struct RuneCount([u32; 20]);
 
 impl RuneCount {
@@ -197,12 +233,6 @@ impl DerefMut for RuneCount {
     }
 }
 
-impl Default for RuneCount {
-    fn default() -> Self {
-        RuneCount([u32::MAX; 20])
-    }
-}
-
 fn main() {
     use DoThis::*;
     let what_do: WhatDo = argh::from_env();
@@ -218,4 +248,46 @@ fn main() {
 
 fn default_path() -> PathBuf {
     PathBuf::from("./elden_runes")
+}
+
+#[cfg(test)]
+mod unit_tests {
+    use crate::{Calculation, RuneCount};
+
+    #[test]
+    fn simple_calcs() {
+        let calc = Calculation {
+            want: 200,
+            ..Default::default()
+        };
+        let mut expected = RuneCount::default();
+        expected[0] = 1;
+        assert_eq!(calc.without_inventory(), expected);
+
+        let calc = Calculation {
+            want: 420,
+            ..Default::default()
+        };
+        let mut expected = RuneCount::default();
+        expected[0] = 1;
+        expected[1] = 1;
+        assert_eq!(calc.without_inventory(), expected);
+
+        let calc = Calculation {
+            want: 1200,
+            ..Default::default()
+        };
+        let mut expected = RuneCount::default();
+        expected[3] = 1;
+        assert_eq!(calc.without_inventory(), expected);
+
+        let calc = Calculation {
+            have: 200,
+            want: 2200,
+            ..Default::default()
+        };
+        let mut expected = RuneCount::default();
+        expected[5] = 1;
+        assert_eq!(calc.without_inventory(), expected);
+    }
 }
