@@ -60,6 +60,9 @@ struct Calculation {
     /// where to get the runes file from (defaults to ./elden_runes)
     #[argh(option, default = "default_path()")]
     file: PathBuf,
+    /// will provide extra information & statistics in output
+    #[argh(switch, short = 'v')]
+    verbose: bool,
 }
 
 impl Calculation {
@@ -78,13 +81,15 @@ impl Calculation {
             }
             Err(_) => self.without_inventory(),
         };
-        let added = outcome.total();
-        let excess = added - self.want;
-        let wasted = excess as f32 / added as f32 * 100f32;
-        let wasted = wasted.round();
-        let new_balance = added + self.have;
-        println!("You need to use:\n{}", outcome.format_as_list());
-        println!("This will result in you having {new_balance} runes, leaving {excess} runes in excess after spending ({wasted}% wasted)");
+
+        println!("You need to use:\n{}", outcome.format_as_list(self.verbose));
+        if self.verbose {
+            let added = outcome.total();
+            let excess = added - self.want;
+            let wasted = (excess as f32 / added as f32 * 100f32).round();
+            let new_balance = added + self.have;
+            println!("This will result in you having {new_balance} runes, leaving {excess} runes in excess after spending ({wasted}% wasted)");
+        }
         Ok(())
     }
 
@@ -176,6 +181,7 @@ impl Default for Calculation {
             have: 0,
             want: 0,
             file: default_path(),
+            verbose: false,
         }
     }
 }
@@ -219,7 +225,7 @@ impl RuneCount {
             })
     }
 
-    fn format_as_list(&self) -> String {
+    fn format_as_list(&self, extras: bool) -> String {
         let mut buf = String::new();
         self.into_iter()
             .enumerate()
@@ -231,9 +237,12 @@ impl RuneCount {
                 buf.push_str(&count.to_string());
                 buf.push_str("x ");
                 buf.push_str(RUNE_NAMES[index]);
-                buf.push_str(" (giving ");
-                buf.push_str(&amount_given.to_string());
-                buf.push_str(")\n");
+                if extras {
+                    buf.push_str(" (giving ");
+                    buf.push_str(&amount_given.to_string());
+                    buf.push(')');
+                }
+                buf.push('\n');
             });
         buf.pop(); // Removes final newline
         buf
