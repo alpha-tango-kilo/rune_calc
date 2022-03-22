@@ -39,7 +39,7 @@ checksum = "e6f8c380fa28aa1b36107cd97f0196474bb7241bb95a453c5c01a15ac74b2eac"
 
 [[package]]
 name = "elden_runes"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "argh",

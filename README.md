@@ -14,7 +14,7 @@ cargo install --git https://codeberg.org/alpha-tango-kilo/elden_runes
 ## Usage
 
 ```
-Usage: elden_runes <command> [<args>] 
+elden_runes <command> [<args>] 
 
 Tells you the optimal rune items to use to reach your desired amount in Elden Ring
 
@@ -26,4 +26,31 @@ Commands:
   calc              Perform a rune calculation
 ```
 
-`--help` can be used on each subcommand for further guidance/options
+### Calculate
+
+```
+elden_runes calc [-h <have>] -w <want> [--file <file>] [-v] 
+
+Perform a rune calculation
+
+Options:
+  -h, --have        how many runes you have
+  -w, --want        how many runes you want to have
+  --file            where to get the runes file from (defaults to ./elden_runes)
+  -v, --verbose     will provide extra information & statistics in output
+  --help            display usage information
+```
+
+### Initialise
+
+```
+elden_runes init [<path>]
+
+Initialise a new elden_runes file (defaults to ./elden_runes)
+
+Positional Arguments:
+  path
+
+Options:
+  --help            display usage information
+```

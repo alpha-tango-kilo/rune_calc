@@ -188,7 +188,7 @@ impl Default for Calculation {
 
 #[derive(FromArgs)]
 #[argh(subcommand, name = "init")]
-/// Initialise a new elden_runes file
+/// Initialise a new elden_runes file (defaults to ./elden_runes)
 struct Initialise {
     #[argh(positional, default = "default_path()")]
     path: PathBuf,
