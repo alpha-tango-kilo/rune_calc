@@ -82,15 +82,16 @@ impl Calculation {
         let inv_total = inventory.total();
         if inv_total < need {
             let short = need - inv_total;
-            bail!("you don't have enough rune items to reach your target, you're {short} short")
+            bail!("you don't have enough rune items to reach your target, you'll be {short} rune(s) short");
         }
         let mut counts = RuneCount([0u32; 20]);
         let mut last_index = 19;
         while need > 0 {
-            // TODO: account for inventory
+            // TODO: use multiple of one size at once if helpful
             let (index, val) = RUNE_VALUES[..=last_index]
                 .iter()
                 .enumerate()
+                .filter(|(index, _)| inventory.has(*index))
                 .rfind(|(_, val)| **val < need)
                 .unwrap_or((0, &200));
             last_index = index;
@@ -98,6 +99,7 @@ impl Calculation {
             need = need.saturating_sub(*val);
         }
         println!("You will need:\n{}", counts.format_as_list());
+        // TODO: update inventory if loaded from file
         Ok(())
     }
 }
@@ -127,6 +129,10 @@ impl Initialise {
 struct RuneCount([u32; 20]);
 
 impl RuneCount {
+    fn has(&self, index: usize) -> bool {
+        self[index] > 0
+    }
+
     fn total(&self) -> u32 {
         self.into_iter()
             .zip(RUNE_VALUES)
