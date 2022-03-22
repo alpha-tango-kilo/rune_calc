@@ -85,14 +85,15 @@ impl Calculation {
             bail!("you don't have enough rune items to reach your target, you're {short} short")
         }
         let mut counts = RuneCount([0u32; 20]);
+        let mut last_index = 19;
         while need > 0 {
-            // TODO: store index of last find and use that to slice RUNE_VALUES before searching
             // TODO: account for inventory
-            let (index, val) = RUNE_VALUES
+            let (index, val) = RUNE_VALUES[..=last_index]
                 .iter()
                 .enumerate()
                 .rfind(|(_, val)| **val < need)
                 .unwrap_or((0, &200));
+            last_index = index;
             counts[index] += 1;
             need = need.saturating_sub(*val);
         }
@@ -129,7 +130,9 @@ impl RuneCount {
     fn total(&self) -> u32 {
         self.into_iter()
             .zip(RUNE_VALUES)
-            .fold(0, |acc, (count, val)| acc + count * val)
+            .fold(0, |acc, (count, val)| {
+                acc.saturating_add(count.saturating_mul(val))
+            })
     }
 
     fn format_as_list(&self) -> String {
