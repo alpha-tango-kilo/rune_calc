@@ -24,6 +24,8 @@ Options:
 Commands:
   init              Initialise a new elden_runes file
   calc              Perform a rune calculation
+  info              Tells you how many runes each rune item gives, in a neat
+                    table
 ```
 
 ### Calculate

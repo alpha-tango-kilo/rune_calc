@@ -1,5 +1,6 @@
 use anyhow::{anyhow, bail, Context};
 use argh::FromArgs;
+use comfy_table::Table;
 use std::cmp::Ordering;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
@@ -46,6 +47,7 @@ struct WhatDo {
 enum DoThis {
     Init(Initialise),
     Calc(Calculation),
+    Info(Information),
 }
 
 #[derive(Debug, FromArgs)]
@@ -243,6 +245,25 @@ impl Initialise {
     }
 }
 
+#[derive(FromArgs)]
+#[argh(subcommand, name = "info")]
+/// Tells you how many runes each rune item gives, in a neat table
+struct Information {}
+
+impl Information {
+    fn run(&self) {
+        let mut table = Table::new();
+        table.set_header(&["Rune name", "Rune value"]);
+        RUNE_NAMES
+            .into_iter()
+            .zip(RUNE_VALUES)
+            .for_each(|(name, value)| {
+                table.add_row(&[String::from(name), value.to_string()]);
+            });
+        println!("{table}");
+    }
+}
+
 #[derive(Debug, Copy, Clone, Default, Eq, PartialEq)]
 struct RuneCount([u32; 20]);
 
@@ -367,6 +388,10 @@ fn main() {
     let result = match what_do.subcommand {
         Init(init) => init.run(),
         Calc(calc) => calc.run(),
+        Info(info) => {
+            info.run();
+            Ok(())
+        }
     };
     if let Err(why) = result {
         eprintln!("Error: {why}");
