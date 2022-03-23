@@ -1,10 +1,11 @@
 use anyhow::{anyhow, bail, Context};
 use argh::FromArgs;
+use std::cmp::Ordering;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
-use std::ops::{Deref, DerefMut};
-use std::path::PathBuf;
-use std::process;
+use std::ops::{Deref, DerefMut, SubAssign};
+use std::path::{Path, PathBuf};
+use std::{io, process};
 
 const RUNE_NAMES: [&str; 20] = [
     "Golden Rune [1]",
@@ -74,12 +75,12 @@ impl Calculation {
             "You have {} runes, and you want {} runes, right?",
             self.have, self.want
         );
-        let outcome = match File::open(&self.file) {
+        let (outcome, inventory) = match File::open(&self.file) {
             Ok(mut handle) => {
-                let inventory = RuneCount::load(&mut handle)?;
-                self.with_inventory(inventory)?
+                let mut inventory = RuneCount::load(&mut handle)?;
+                (self.with_inventory(&mut inventory)?, Some(inventory))
             }
-            Err(_) => self.without_inventory(),
+            Err(_) => (self.without_inventory(), None),
         };
 
         println!("You need to use:\n{}", outcome.format_as_list(self.verbose));
@@ -90,49 +91,83 @@ impl Calculation {
             let new_balance = added + self.have;
             println!("This will result in you having {new_balance} runes, leaving {excess} runes in excess after spending ({wasted}% wasted)");
         }
+
+        // Update inventory file if desired
+        if let Some(inventory) = inventory {
+            if yay_nay_prompt("Do you want to update your inventory file?")
+                .unwrap_or_default()
+            {
+                inventory.save(&self.file)?;
+            }
+        }
         Ok(())
     }
 
     fn with_inventory(
         &self,
-        inventory: RuneCount,
+        inventory: &mut RuneCount,
     ) -> anyhow::Result<RuneCount> {
-        let mut need = self.want - self.have;
+        let need = self.want - self.have;
         let inv_total = inventory.total();
         if inv_total < need {
             let short = need - inv_total;
             bail!("you don't have enough rune items to reach your target, you'll be {short} rune(s) short");
         }
-        let mut counts = RuneCount([0u32; 20]);
-        let mut last_index = 19;
-        while need > 0 {
-            // TODO: use multiple of one size at once if helpful
-            let (index, val) = RUNE_VALUES[..=last_index]
-                .iter()
-                .enumerate()
-                .filter(|(index, _)| inventory.has(*index))
-                .rfind(|(_, val)| **val <= need)
-                .unwrap_or((0, &200));
-            last_index = index;
-            counts[index] += 1;
-            need = need.saturating_sub(*val);
-        }
-        let need = self.want - self.have;
-        let current_solution_total = counts.total();
-        // If this is Some, we've found a more efficient single rune solution
-        if let Some((index, _)) =
-            RUNE_VALUES.iter().enumerate().rfind(|(index, val)| {
+
+        // Find a single rune solution
+        let single_rune_solution = RUNE_VALUES
+            .iter()
+            .enumerate()
+            .rfind(|(index, val)| {
                 let have_it = inventory.has(*index);
                 let big_enough = **val >= need;
-                let more_efficient = **val < current_solution_total;
-                have_it && big_enough && more_efficient
+                have_it && big_enough
             })
-        {
-            counts = RuneCount::default();
-            counts[index] = 1;
-        }
-        // TODO: update inventory if loaded from file
-        Ok(counts)
+            .map(|(index, _)| RuneCount::single(index));
+
+        // Multi-rune solution (many small runes instead of one big one)
+        // Note: this can fail when dealing with inventory constraints
+        let multi_rune_solution = (|| {
+            // Redeclare need as mut (saves hurting myself in my confusion)
+            let mut need = self.want - self.have;
+            let mut solution = RuneCount::default();
+            let mut last_index = 19;
+            while need > 0 {
+                let next_smallest = RUNE_VALUES[..=last_index]
+                    .iter()
+                    .enumerate()
+                    .filter(|(index, _)| inventory.has(*index))
+                    .rfind(|(_, val)| **val <= need);
+                match next_smallest {
+                    Some((index, val)) => {
+                        last_index = index;
+                        solution[index] += 1;
+                        need = need.saturating_sub(*val);
+                    }
+                    None => return None,
+                }
+            }
+            Some(solution)
+        })();
+
+        let best = match (single_rune_solution, multi_rune_solution) {
+            (Some(a), Some(b)) => {
+                // Both solutions are guaranteed to give enough runes, so
+                // whichever one gives less will be most efficient
+                use std::cmp::Ordering::*;
+                match a.cmp(&b) {
+                    Less | Equal => a,
+                    Greater => b,
+                }
+            }
+            (Some(a), None) => a,
+            (None, Some(b)) => b,
+            (None, None) => unreachable!(
+                "should have already failed if there was no solution"
+            ),
+        };
+        *inventory -= best;
+        Ok(best)
     }
 
     fn without_inventory(&self) -> RuneCount {
@@ -213,6 +248,12 @@ impl Initialise {
 struct RuneCount([u32; 20]);
 
 impl RuneCount {
+    fn single(index: usize) -> Self {
+        let mut rc = RuneCount::default();
+        rc[index] = 1;
+        rc
+    }
+
     fn has(&self, index: usize) -> bool {
         self[index] > 0
     }
@@ -271,6 +312,18 @@ impl RuneCount {
             })?;
         Ok(counts)
     }
+
+    fn save<P: AsRef<Path>>(&self, path: P) -> io::Result<()> {
+        let mut handle =
+            OpenOptions::new().write(true).truncate(true).open(path)?;
+        self.into_iter().zip(RUNE_NAMES).try_for_each(
+            |(count, name)| -> io::Result<()> {
+                handle.write_all(count.to_string().as_bytes())?;
+                handle.write_all("x ".as_bytes())?;
+                handle.write_all(name.as_bytes())
+            },
+        )
+    }
 }
 
 impl Deref for RuneCount {
@@ -284,6 +337,28 @@ impl Deref for RuneCount {
 impl DerefMut for RuneCount {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl PartialOrd for RuneCount {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        let my_total = self.total();
+        let other_total = other.total();
+        my_total.partial_cmp(&other_total)
+    }
+}
+
+impl Ord for RuneCount {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let my_total = self.total();
+        let other_total = other.total();
+        my_total.cmp(&other_total)
+    }
+}
+
+impl SubAssign for RuneCount {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.iter_mut().zip(rhs.iter()).for_each(|(a, b)| *a -= *b);
     }
 }
 
@@ -304,6 +379,14 @@ fn default_path() -> PathBuf {
     PathBuf::from("./elden_runes")
 }
 
+fn yay_nay_prompt(prompt: &str) -> io::Result<bool> {
+    print!("{prompt} [Y/n] ");
+    io::stdout().flush()?;
+    let mut buf = String::new();
+    io::stdin().read_line(&mut buf)?;
+    Ok(!buf[..1].eq_ignore_ascii_case("n"))
+}
+
 #[cfg(test)]
 mod unit_tests {
     use crate::{Calculation, RuneCount};
@@ -314,8 +397,7 @@ mod unit_tests {
             want: 200,
             ..Default::default()
         };
-        let mut expected = RuneCount::default();
-        expected[0] = 1;
+        let expected = RuneCount::single(0);
         assert_eq!(calc.without_inventory(), expected);
 
         let calc = Calculation {
@@ -331,8 +413,7 @@ mod unit_tests {
             want: 1200,
             ..Default::default()
         };
-        let mut expected = RuneCount::default();
-        expected[3] = 1;
+        let expected = RuneCount::single(3);
         assert_eq!(calc.without_inventory(), expected);
 
         let calc = Calculation {
@@ -340,8 +421,7 @@ mod unit_tests {
             want: 2200,
             ..Default::default()
         };
-        let mut expected = RuneCount::default();
-        expected[5] = 1;
+        let expected = RuneCount::single(5);
         assert_eq!(calc.without_inventory(), expected);
     }
 
@@ -353,8 +433,20 @@ mod unit_tests {
             want: 2450,
             ..Default::default()
         };
-        let mut expected = RuneCount::default();
-        expected[6] = 1;
+        let expected = RuneCount::single(6);
         assert_eq!(calc.without_inventory(), expected);
+    }
+
+    #[test]
+    fn not_enough_smallest() {
+        let calc = Calculation {
+            want: 300,
+            ..Default::default()
+        };
+        let mut inv = RuneCount::default();
+        inv[0] = 1;
+        inv[3] = 1;
+        let expected = RuneCount::single(3);
+        assert_eq!(calc.with_inventory(&mut inv).unwrap(), expected);
     }
 }
