@@ -243,8 +243,7 @@ impl Initialise {
     }
 }
 
-#[derive(Copy, Clone, Default)]
-#[cfg_attr(test, derive(Debug, Eq, PartialEq))]
+#[derive(Debug, Copy, Clone, Default, Eq, PartialEq)]
 struct RuneCount([u32; 20]);
 
 impl RuneCount {
