@@ -120,7 +120,7 @@ impl Calculation {
         let single_rune_solution = RUNE_VALUES
             .iter()
             .enumerate()
-            .rfind(|(index, val)| {
+            .find(|(index, val)| {
                 let have_it = inventory.has(*index);
                 let big_enough = **val >= need;
                 have_it && big_enough
@@ -447,6 +447,17 @@ mod unit_tests {
         };
         let expected = RuneCount::single(5);
         assert_eq!(calc.without_inventory(), expected);
+    }
+
+    #[test]
+    fn simple_inv_calcs() {
+        let calc = Calculation {
+            want: 10,
+            ..Default::default()
+        };
+        let mut inv = RuneCount([1; 20]);
+        let expected = RuneCount::single(0);
+        assert_eq!(calc.with_inventory(&mut inv).unwrap(), expected);
     }
 
     #[test]
