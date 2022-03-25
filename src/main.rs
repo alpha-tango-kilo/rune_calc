@@ -6,7 +6,8 @@ use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
 use std::ops::{Deref, DerefMut, SubAssign};
 use std::path::{Path, PathBuf};
-use std::{io, process};
+use std::slice::SliceIndex;
+use std::{cmp, io, process};
 
 const RUNE_NAMES: [&str; 20] = [
     "Golden Rune [1]",
@@ -125,34 +126,69 @@ impl Calculation {
                 let big_enough = **val >= need;
                 have_it && big_enough
             })
-            .map(|(index, _)| RuneCount::single(index));
+            .map(|(index, _)| index);
 
+        // TODO: recurse! recurse!
         // Multi-rune solution (many small runes instead of one big one)
         // Note: this can fail when dealing with inventory constraints
         let multi_rune_solution = (|| {
             // Redeclare need as mut (saves hurting myself in my confusion)
             let mut need = self.want - self.have;
             let mut solution = RuneCount::default();
-            let mut last_index = 19;
+            // Copy inventory
+            let mut inventory = *inventory;
+            // Start off with the smaller rune size than the single rune
+            // solution, if possible. Otherwise just consider the whole list
+            let mut size_index = match single_rune_solution {
+                // Edge case: single_rune_solution is a golden rune [1], this
+                // algorithm can't beat that (obviously)
+                Some(index) if index == 0 => return None,
+                Some(index) => index - 1,
+                None => 19,
+            };
             while need > 0 {
-                let next_smallest = RUNE_VALUES[..=last_index]
-                    .iter()
-                    .enumerate()
-                    .filter(|(index, _)| inventory.has(*index))
-                    .rfind(|(_, val)| **val <= need);
-                match next_smallest {
-                    Some((index, val)) => {
-                        last_index = index;
-                        solution[index] += 1;
-                        need = need.saturating_sub(*val);
-                    }
-                    None => return None,
+                // If we've reached the top of the loop we may need to move the index down
+                let bigger_than_necessary = RUNE_VALUES[size_index] > need;
+                let enough_left_if_shrunk =
+                    inventory.slice_total(..size_index) >= need;
+                if !enough_left_if_shrunk && !inventory.has(size_index) {
+                    // We don't have enough runes to complete the calculation
+                    return None;
                 }
+                let mut reduce_index =
+                    // We're out of this rune
+                    !inventory.has(size_index)
+                        // The rune size we're on is bigger than we need, and
+                        // we're sure that there will still be enough runes
+                        // left in the remaining inventory slice
+                        || (bigger_than_necessary && enough_left_if_shrunk);
+                // Move down to the next available index
+                while reduce_index || !inventory.has(size_index) {
+                    size_index -= 1;
+                    reduce_index = false;
+                }
+                let quantity = if enough_left_if_shrunk {
+                    cmp::min(
+                        need / RUNE_VALUES[size_index],
+                        inventory[size_index],
+                    )
+                } else {
+                    // Prevent the cmp::min evaluating to 0, as the left
+                    // expression may do
+                    1
+                };
+
+                solution[size_index] += quantity;
+                inventory[size_index] -= quantity;
+                need = need.saturating_sub(RUNE_VALUES[size_index] * quantity);
             }
             Some(solution)
         })();
 
-        let best = match (single_rune_solution, multi_rune_solution) {
+        let best = match (
+            single_rune_solution.map(RuneCount::single),
+            multi_rune_solution,
+        ) {
             (Some(a), Some(b)) => {
                 // Both solutions are guaranteed to give enough runes, so
                 // whichever one gives less will be most efficient
@@ -279,7 +315,15 @@ impl RuneCount {
     }
 
     fn total(&self) -> u32 {
-        self.into_iter()
+        self.slice_total(..)
+    }
+
+    fn slice_total<R>(&self, range: R) -> u32
+    where
+        R: SliceIndex<[u32], Output = [u32]>,
+    {
+        self.0[range]
+            .iter()
             .zip(RUNE_VALUES)
             .fold(0, |acc, (count, val)| {
                 acc.saturating_add(count.saturating_mul(val))
@@ -457,6 +501,21 @@ mod unit_tests {
         };
         let mut inv = RuneCount([1; 20]);
         let expected = RuneCount::single(0);
+        assert_eq!(calc.with_inventory(&mut inv).unwrap(), expected);
+
+        let calc = Calculation {
+            have: 6606,
+            want: 25000,
+            ..Default::default()
+        };
+        let mut inv = RuneCount([
+            67, 9, 9, 10, 11, 7, 2, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]);
+        // TODO: this is correct but not optimal, optimal would be:
+        //       0, 0, 0, 0, 1, 4, 2, 0, 1, ..
+        let expected = RuneCount([
+            2, 0, 0, 1, 0, 4, 2, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]);
         assert_eq!(calc.with_inventory(&mut inv).unwrap(), expected);
     }
 
