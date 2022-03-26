@@ -264,12 +264,6 @@ impl Information {
 struct RuneCount([u32; 20]);
 
 impl RuneCount {
-    fn single(index: usize) -> Self {
-        let mut rc = RuneCount::default();
-        rc[index] = 1;
-        rc
-    }
-
     fn has(&self, index: usize) -> bool {
         self[index] > 0
     }
@@ -347,6 +341,13 @@ impl RuneCount {
                 handle.write_all(name.as_bytes())
             },
         )
+    }
+
+    #[cfg(test)]
+    fn single(index: usize) -> Self {
+        let mut rc = RuneCount::default();
+        rc[index] = 1;
+        rc
     }
 }
 
