@@ -7,7 +7,7 @@ use std::io::{Read, Write};
 use std::ops::{Deref, DerefMut, SubAssign};
 use std::path::{Path, PathBuf};
 use std::slice::SliceIndex;
-use std::{cmp, io, process};
+use std::{io, process};
 
 const RUNE_NAMES: [&str; 20] = [
     "Golden Rune [1]",
@@ -106,89 +106,48 @@ impl Calculation {
         Ok(())
     }
 
-    fn with_inventory(
-        &self,
-        inventory: &mut RuneCount,
-    ) -> anyhow::Result<RuneCount> {
-        let need = self.want - self.have;
-        let inv_total = inventory.total();
-        if inv_total < need {
-            let short = need - inv_total;
-            bail!("you don't have enough rune items to reach your target, you'll be {short} rune(s) short");
-        }
+    fn solve(need: u32, inventory: Option<RuneCount>) -> RuneCount {
+        Calculation::_solve(need, RuneCount::default(), inventory)
+    }
 
-        // Find a single rune solution
-        let single_rune_solution = RUNE_VALUES
+    fn _solve(
+        need: u32,
+        solution: RuneCount,
+        inventory: Option<RuneCount>,
+    ) -> RuneCount {
+        // TODO: optimise with indexes
+        let next_biggest = RUNE_VALUES
             .iter()
             .enumerate()
             .find(|(index, val)| {
-                let have_it = inventory.has(*index);
-                let big_enough = **val >= need;
-                have_it && big_enough
+                inventory.map(|inv| inv.has(*index)).unwrap_or(true)
+                    && **val >= need
             })
             .map(|(index, _)| index);
+        let next_smallest =
+            RUNE_VALUES.iter().enumerate().rfind(|(index, val)| {
+                inventory.map(|inv| inv.has(*index)).unwrap_or(true)
+                    && **val < need
+            });
 
-        // TODO: recurse! recurse!
-        // Multi-rune solution (many small runes instead of one big one)
-        // Note: this can fail when dealing with inventory constraints
-        let multi_rune_solution = (|| {
-            // Redeclare need as mut (saves hurting myself in my confusion)
-            let mut need = self.want - self.have;
-            let mut solution = RuneCount::default();
-            // Copy inventory
-            let mut inventory = *inventory;
-            // Start off with the smaller rune size than the single rune
-            // solution, if possible. Otherwise just consider the whole list
-            let mut size_index = match single_rune_solution {
-                // Edge case: single_rune_solution is a golden rune [1], this
-                // algorithm can't beat that (obviously)
-                Some(index) if index == 0 => return None,
-                Some(index) => index - 1,
-                None => 19,
-            };
-            while need > 0 {
-                // If we've reached the top of the loop we may need to move the index down
-                let bigger_than_necessary = RUNE_VALUES[size_index] > need;
-                let enough_left_if_shrunk =
-                    inventory.slice_total(..size_index) >= need;
-                if !enough_left_if_shrunk && !inventory.has(size_index) {
-                    // We don't have enough runes to complete the calculation
-                    return None;
-                }
-                let mut reduce_index =
-                    // We're out of this rune
-                    !inventory.has(size_index)
-                        // The rune size we're on is bigger than we need, and
-                        // we're sure that there will still be enough runes
-                        // left in the remaining inventory slice
-                        || (bigger_than_necessary && enough_left_if_shrunk);
-                // Move down to the next available index
-                while reduce_index || !inventory.has(size_index) {
-                    size_index -= 1;
-                    reduce_index = false;
-                }
-                let quantity = if enough_left_if_shrunk {
-                    cmp::min(
-                        need / RUNE_VALUES[size_index],
-                        inventory[size_index],
-                    )
-                } else {
-                    // Prevent the cmp::min evaluating to 0, as the left
-                    // expression may do
-                    1
-                };
+        let sol_a = next_biggest.map(|index| {
+            let mut me = solution;
+            me[index] += 1;
+            me
+        });
+        let sol_b = next_smallest.map(|(index, val)| {
+            let mut me = solution;
+            me[index] += 1;
+            let new_inv = inventory.map(|inv| {
+                let mut new_inv = inv;
+                new_inv[index] -= 1;
+                new_inv
+            });
+            let need = need - *val;
+            Calculation::_solve(need, me, new_inv)
+        });
 
-                solution[size_index] += quantity;
-                inventory[size_index] -= quantity;
-                need = need.saturating_sub(RUNE_VALUES[size_index] * quantity);
-            }
-            Some(solution)
-        })();
-
-        let best = match (
-            single_rune_solution.map(RuneCount::single),
-            multi_rune_solution,
-        ) {
+        match (sol_a, sol_b) {
             (Some(a), Some(b)) => {
                 // Both solutions are guaranteed to give enough runes, so
                 // whichever one gives less will be most efficient
@@ -203,48 +162,26 @@ impl Calculation {
             (None, None) => unreachable!(
                 "should have already failed if there was no solution"
             ),
-        };
-        *inventory -= best;
-        Ok(best)
+        }
+    }
+
+    fn with_inventory(
+        &self,
+        inventory: &mut RuneCount,
+    ) -> anyhow::Result<RuneCount> {
+        let need = self.want - self.have;
+        let inv_total = inventory.total();
+        if inv_total < need {
+            let short = need - inv_total;
+            bail!("you don't have enough rune items to reach your target, you'll be {short} rune(s) short");
+        }
+        let solution = Calculation::solve(need, Some(*inventory));
+        *inventory -= solution;
+        Ok(solution)
     }
 
     fn without_inventory(&self) -> RuneCount {
-        let mut need = self.want - self.have;
-        let mut counts = RuneCount::default();
-        let mut last_index = 20;
-        /*
-        Basic algorithm is find the biggest rune thats less than or equal to
-        need, and use one of those. Update need, repeat.
-        Shortcuts used:
-        - do not re-search the whole list of rune values each time, as we know
-        we need a smaller rune than the last iteration
-         */
-        while need > 0 {
-            let (index, val) = RUNE_VALUES[..last_index]
-                .iter()
-                .enumerate()
-                .rfind(|(_, val)| **val <= need)
-                .unwrap_or((0, &200));
-            last_index = index;
-            counts[index] += 1;
-            need = need.saturating_sub(*val);
-        }
-        /*
-        Now, to ensure optimality (I think), we see if there's a single rune
-        bigger than our target that's more efficient
-         */
-        let need = self.want - self.have;
-        let current_solution_total = counts.total();
-        // If this is Some, we've found a more efficient single rune solution
-        if let Some((index, _)) = RUNE_VALUES
-            .iter()
-            .enumerate()
-            .rfind(|(_, val)| **val >= need && **val < current_solution_total)
-        {
-            counts = RuneCount::default();
-            counts[index] = 1;
-        }
-        counts
+        Calculation::solve(self.want - self.have, None)
     }
 }
 
@@ -511,10 +448,8 @@ mod unit_tests {
         let mut inv = RuneCount([
             67, 9, 9, 10, 11, 7, 2, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ]);
-        // TODO: this is correct but not optimal, optimal would be:
-        //       0, 0, 0, 0, 1, 4, 2, 0, 1, ..
         let expected = RuneCount([
-            2, 0, 0, 1, 0, 4, 2, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 1, 4, 2, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ]);
         assert_eq!(calc.with_inventory(&mut inv).unwrap(), expected);
     }
