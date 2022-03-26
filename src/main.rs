@@ -124,6 +124,8 @@ impl Calculation {
         big_index: usize,
         inventory: Option<RuneCount>,
     ) -> Option<RuneCount> {
+        // Get the index of the smallest rune that is big enough to entirely
+        // fulfill our need
         let closest_bigger_index = RUNE_VALUES[..big_index]
             .iter()
             .enumerate()
@@ -132,24 +134,32 @@ impl Calculation {
                     && **val >= need
             })
             .map(|(index, _)| index);
+        // Add this rune to a solution, which necessarily will have fewer runes
+        // in it than the other approach
         let fewer_runes_solution = closest_bigger_index.map(|index| {
             let mut me = partial_solution;
             me[index] += 1;
             me
         });
 
-        // Update big_index so that closest_smaller_index != closest_bigger_index
+        // Update big_index to ensure that the rune chosen is smaller than
+        // closest_bigger_index
+        // The above would be bad if it were made possible because then both
+        // solutions could end up being the same, which is inefficient
         let big_index = closest_bigger_index.unwrap_or(big_index - 1);
 
-        let closest_smaller_index = RUNE_VALUES[..big_index]
+        // This is similar to how we arrive at the fewer runes solution, but we
+        // don't need and intermediary variable so we just smash it all
+        // together with and_then directly after the find. and_then is used
+        // instead of map as the recursive process can fail
+        let more_runes_solution = RUNE_VALUES[..big_index]
             .iter()
             .enumerate()
             .rfind(|(index, val)| {
                 inventory.map(|inv| inv.has(*index)).unwrap_or(true)
                     && **val < need
-            });
-        let more_runes_solution =
-            closest_smaller_index.and_then(|(index, val)| {
+            }).and_then(|(index, val)| {
+                // Get all our variables in order ready to recurse!
                 let mut me = partial_solution;
                 me[index] += 1;
                 let new_inv = inventory.map(|inv| {
@@ -165,7 +175,8 @@ impl Calculation {
             // In the case where we have two solutions, take the most efficient one
             (Some(a), Some(b)) => {
                 // Both solutions are guaranteed to give enough runes, so
-                // whichever one gives less will be most efficient
+                // whichever one gives less will be most efficient. Prefer a
+                // when equal as a is the fewer runes solution
                 use std::cmp::Ordering::*;
                 match a.cmp(&b) {
                     Less | Equal => Some(a),
