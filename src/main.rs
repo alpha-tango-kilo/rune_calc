@@ -107,16 +107,24 @@ impl Calculation {
     }
 
     fn solve(need: u32, inventory: Option<RuneCount>) -> RuneCount {
-        Calculation::_solve(need, RuneCount::default(), inventory)
+        Calculation::_solve(
+            need,
+            RuneCount::default(),
+            RUNE_VALUES.len(),
+            inventory,
+        )
+        .expect(
+            "calculations should be checked before using Calculation::solve",
+        )
     }
 
     fn _solve(
         need: u32,
-        solution: RuneCount,
+        partial_solution: RuneCount,
+        big_index: usize,
         inventory: Option<RuneCount>,
-    ) -> RuneCount {
-        // TODO: optimise with indexes
-        let next_biggest = RUNE_VALUES
+    ) -> Option<RuneCount> {
+        let closest_bigger_index = RUNE_VALUES[..big_index]
             .iter()
             .enumerate()
             .find(|(index, val)| {
@@ -124,44 +132,48 @@ impl Calculation {
                     && **val >= need
             })
             .map(|(index, _)| index);
-        let next_smallest =
-            RUNE_VALUES.iter().enumerate().rfind(|(index, val)| {
-                inventory.map(|inv| inv.has(*index)).unwrap_or(true)
-                    && **val < need
-            });
-
-        let sol_a = next_biggest.map(|index| {
-            let mut me = solution;
+        let fewer_runes_solution = closest_bigger_index.map(|index| {
+            let mut me = partial_solution;
             me[index] += 1;
             me
         });
-        let sol_b = next_smallest.map(|(index, val)| {
-            let mut me = solution;
-            me[index] += 1;
-            let new_inv = inventory.map(|inv| {
-                let mut new_inv = inv;
-                new_inv[index] -= 1;
-                new_inv
-            });
-            let need = need - *val;
-            Calculation::_solve(need, me, new_inv)
-        });
 
-        match (sol_a, sol_b) {
+        // Update big_index so that closest_smaller_index != closest_bigger_index
+        let big_index = closest_bigger_index.unwrap_or(big_index - 1);
+
+        let closest_smaller_index = RUNE_VALUES[..big_index]
+            .iter()
+            .enumerate()
+            .rfind(|(index, val)| {
+                inventory.map(|inv| inv.has(*index)).unwrap_or(true)
+                    && **val < need
+            });
+        let more_runes_solution =
+            closest_smaller_index.and_then(|(index, val)| {
+                let mut me = partial_solution;
+                me[index] += 1;
+                let new_inv = inventory.map(|inv| {
+                    let mut new_inv = inv;
+                    new_inv[index] -= 1;
+                    new_inv
+                });
+                let need = need - *val;
+                Calculation::_solve(need, me, big_index, new_inv)
+            });
+
+        match (fewer_runes_solution, more_runes_solution) {
+            // In the case where we have two solutions, take the most efficient one
             (Some(a), Some(b)) => {
                 // Both solutions are guaranteed to give enough runes, so
                 // whichever one gives less will be most efficient
                 use std::cmp::Ordering::*;
                 match a.cmp(&b) {
-                    Less | Equal => a,
-                    Greater => b,
+                    Less | Equal => Some(a),
+                    Greater => Some(b),
                 }
             }
-            (Some(a), None) => a,
-            (None, Some(b)) => b,
-            (None, None) => unreachable!(
-                "should have already failed if there was no solution"
-            ),
+            // Otherwise, whichever works
+            (a, b) => a.or(b),
         }
     }
 
