@@ -337,8 +337,9 @@ impl RuneCount {
         self.into_iter().zip(RUNE_NAMES).try_for_each(
             |(count, name)| -> io::Result<()> {
                 handle.write_all(count.to_string().as_bytes())?;
-                handle.write_all("x ".as_bytes())?;
-                handle.write_all(name.as_bytes())
+                handle.write_all(b"x ")?;
+                handle.write_all(name.as_bytes())?;
+                handle.write_all(b"\n")
             },
         )
     }
