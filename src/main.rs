@@ -164,7 +164,8 @@ impl Calculation {
             .rfind(|(index, val)| {
                 inventory.map(|inv| inv.has(*index)).unwrap_or(true)
                     && **val < need
-            }).and_then(|(index, val)| {
+            })
+            .and_then(|(index, val)| {
                 // Get all our variables in order ready to recurse!
                 let mut me = partial_solution;
                 me[index] += 1;
@@ -251,19 +252,67 @@ impl Initialise {
 #[derive(FromArgs)]
 #[argh(subcommand, name = "info")]
 /// Tells you how many runes each rune item gives, in a neat table
-struct Information {}
+struct Information {
+    /// show the quantities from your inventory alongside the table (looks in ./elden_runes by default)
+    #[argh(switch)]
+    with_inv: bool,
+    #[argh(positional, default = "default_path()")]
+    path: PathBuf,
+}
 
 impl Information {
-    fn run(&self) {
+    fn run(&self) -> anyhow::Result<()> {
         let mut table = Table::new();
-        table.set_header(&["Rune name", "Rune value"]);
-        RUNE_NAMES
-            .into_iter()
-            .zip(RUNE_VALUES)
-            .for_each(|(name, value)| {
-                table.add_row(&[String::from(name), value.to_string()]);
-            });
+        let inv = if self.with_inv {
+            match File::open(&self.path) {
+                Ok(mut handle) => Some(RuneCount::load(&mut handle)?),
+                Err(why) => {
+                    eprintln!("Warning: failed to load inventory: {why}");
+                    None
+                }
+            }
+        } else {
+            None
+        };
+        match inv {
+            None => {
+                table.set_header(&["Rune name", "Rune value"]);
+                RUNE_NAMES.into_iter().zip(RUNE_VALUES).for_each(
+                    |(name, value)| {
+                        table.add_row(&[String::from(name), value.to_string()]);
+                    },
+                );
+            }
+            Some(inv) => {
+                table.set_header(&[
+                    "Rune name",
+                    "Rune value",
+                    "You have",
+                    "Total value",
+                ]);
+                RUNE_NAMES
+                    .into_iter()
+                    .zip(RUNE_VALUES)
+                    .zip(inv.iter())
+                    .for_each(|((name, value), count)| {
+                        let total = value * *count;
+                        table.add_row(&[
+                            String::from(name),
+                            value.to_string(),
+                            count.to_string(),
+                            total.to_string(),
+                        ]);
+                    });
+                table.add_row(&[
+                    String::new(),
+                    String::new(),
+                    String::from("Overall total:"),
+                    inv.total().to_string(),
+                ]);
+            }
+        }
         println!("{table}");
+        Ok(())
     }
 }
 
@@ -401,10 +450,7 @@ fn main() {
     let result = match what_do.subcommand {
         Init(init) => init.run(),
         Calc(calc) => calc.run(),
-        Info(info) => {
-            info.run();
-            Ok(())
-        }
+        Info(info) => info.run(),
     };
     if let Err(why) = result {
         eprintln!("Error: {why}");

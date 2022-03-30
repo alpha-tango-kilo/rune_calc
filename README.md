@@ -57,3 +57,19 @@ Positional Arguments:
 Options:
   --help            display usage information
 ```
+
+### Information
+
+```
+elden_runes info [--with-inv] [<path>] 
+ 
+Tells you how many runes each rune item gives, in a neat table
+
+Positional Arguments:
+  path
+
+Options:
+  --with-inv        show the quantities from your inventory alongside the table
+                    (looks in ./elden_runes by default)
+  --help            display usage information
+```
