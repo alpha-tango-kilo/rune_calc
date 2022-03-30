@@ -67,6 +67,9 @@ struct Calculation {
     /// will provide extra information & statistics in output
     #[argh(switch, short = 'v')]
     verbose: bool,
+    /// disable inventory look-up (prevents auto-discovery)
+    #[argh(switch)]
+    no_inv: bool,
 }
 
 impl Calculation {
@@ -78,12 +81,15 @@ impl Calculation {
             "You have {} runes, and you want {} runes, right?",
             self.have, self.want
         );
-        let (outcome, inventory) = match File::open(&self.file) {
-            Ok(mut handle) => {
-                let mut inventory = RuneCount::load(&mut handle)?;
-                (self.with_inventory(&mut inventory)?, Some(inventory))
-            }
-            Err(_) => (self.without_inventory(), None),
+        let (outcome, inventory) = match self.no_inv {
+            false => match File::open(&self.file) {
+                Ok(mut handle) => {
+                    let mut inventory = RuneCount::load(&mut handle)?;
+                    (self.with_inventory(&mut inventory)?, Some(inventory))
+                }
+                Err(_) => (self.without_inventory(), None),
+            },
+            true => (self.without_inventory(), None),
         };
 
         println!("You need to use:\n{}", outcome.format_as_list(self.verbose));
@@ -215,6 +221,7 @@ impl Default for Calculation {
             want: 0,
             file: default_path(),
             verbose: false,
+            no_inv: false,
         }
     }
 }

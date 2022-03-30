@@ -40,6 +40,7 @@ Options:
   -w, --want        how many runes you want to have
   --file            where to get the runes file from (defaults to ./elden_runes)
   -v, --verbose     will provide extra information & statistics in output
+  --no-inv          disable inventory look-up (prevents auto-discovery)
   --help            display usage information
 ```
 
