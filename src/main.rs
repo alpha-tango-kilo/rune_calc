@@ -7,7 +7,7 @@ use std::io::{Read, Write};
 use std::ops::{Deref, DerefMut, SubAssign};
 use std::path::{Path, PathBuf};
 use std::slice::SliceIndex;
-use std::{io, process};
+use std::{fmt, io, process};
 
 const RUNE_NAMES: [&str; 20] = [
     "Golden Rune [1]",
@@ -94,11 +94,8 @@ impl Calculation {
 
         println!("You need to use:\n{}", outcome.format_as_list(self.verbose));
         if self.verbose {
-            let added = outcome.total();
-            let excess = added - self.want;
-            let wasted = (excess as f32 / added as f32 * 100f32).round();
-            let new_balance = added + self.have;
-            println!("This will result in you having {new_balance} runes, leaving {excess} runes in excess after spending ({wasted}% wasted)");
+            let stats = VerboseStats::new(self.have, self.want, outcome);
+            println!("{stats}");
         }
 
         // Update inventory file if desired
@@ -441,6 +438,40 @@ impl Ord for RuneCount {
 impl SubAssign for RuneCount {
     fn sub_assign(&mut self, rhs: Self) {
         self.iter_mut().zip(rhs.iter()).for_each(|(a, b)| *a -= *b);
+    }
+}
+
+#[derive(Debug)]
+struct VerboseStats {
+    to_consume: u32,
+    before_spending: u32,
+    after_spending: u32,
+}
+
+impl VerboseStats {
+    fn new(have: u32, want: u32, consuming: RuneCount) -> Self {
+        let to_consume = consuming.total();
+        let before_spending = have + to_consume;
+        let after_spending = before_spending - want;
+        VerboseStats {
+            to_consume,
+            before_spending,
+            after_spending,
+        }
+    }
+}
+
+impl fmt::Display for VerboseStats {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "In total, you're consuming {} runes, \
+            which will result in you having {} runes, \
+            leaving {} after spending",
+            self.to_consume,
+            self.before_spending,
+            self.after_spending,
+        )
     }
 }
 
