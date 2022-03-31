@@ -22,3 +22,4 @@ default-features = false
 lto = true
 panic = "abort"
 codegen-units = 1
+overflow-checks = true
