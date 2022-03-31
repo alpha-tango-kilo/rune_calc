@@ -468,9 +468,7 @@ impl fmt::Display for VerboseStats {
             "In total, you're consuming {} runes, \
             which will result in you having {} runes, \
             leaving {} after spending",
-            self.to_consume,
-            self.before_spending,
-            self.after_spending,
+            self.to_consume, self.before_spending, self.after_spending,
         )
     }
 }
