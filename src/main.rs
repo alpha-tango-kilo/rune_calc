@@ -1,13 +1,18 @@
+use std::{
+    cmp::Ordering,
+    fmt,
+    fs::{File, OpenOptions},
+    io,
+    io::{Read, Write},
+    ops::{Deref, DerefMut, SubAssign},
+    path::{Path, PathBuf},
+    process,
+    slice::SliceIndex,
+};
+
 use anyhow::{anyhow, bail, Context};
 use argh::FromArgs;
 use comfy_table::Table;
-use std::cmp::Ordering;
-use std::fs::{File, OpenOptions};
-use std::io::{Read, Write};
-use std::ops::{Deref, DerefMut, SubAssign};
-use std::path::{Path, PathBuf};
-use std::slice::SliceIndex;
-use std::{fmt, io, process};
 
 const RUNE_NAMES: [&str; 20] = [
     "Golden Rune [1]",
@@ -37,7 +42,8 @@ const RUNE_VALUES: [u32; 20] = [
 ];
 
 #[derive(FromArgs)]
-/// Tells you the optimal rune items to use to reach your desired amount in Elden Ring
+/// Tells you the optimal rune items to use to reach your desired amount in
+/// Elden Ring
 struct WhatDo {
     #[argh(subcommand)]
     subcommand: DoThis,
@@ -86,7 +92,7 @@ impl Calculation {
                 Ok(mut handle) => {
                     let mut inventory = RuneCount::load(&mut handle)?;
                     (self.with_inventory(&mut inventory)?, Some(inventory))
-                }
+                },
                 Err(_) => (self.without_inventory(), None),
             },
             true => (self.without_inventory(), None),
@@ -176,7 +182,8 @@ impl Calculation {
             });
 
         match (fewer_runes_solution, more_runes_solution) {
-            // In the case where we have two solutions, take the most efficient one
+            // In the case where we have two solutions, take the most efficient
+            // one
             (Some(a), Some(b)) => {
                 // Both solutions are guaranteed to give enough runes, so
                 // whichever one gives less will be most efficient. Prefer a
@@ -186,7 +193,7 @@ impl Calculation {
                     Less | Equal => Some(a),
                     Greater => Some(b),
                 }
-            }
+            },
             // Otherwise, whichever works
             (a, b) => a.or(b),
         }
@@ -200,7 +207,10 @@ impl Calculation {
         let inv_total = inventory.total();
         if inv_total < need {
             let short = need - inv_total;
-            bail!("you don't have enough rune items to reach your target, you'll be {short} rune(s) short");
+            bail!(
+                "you don't have enough rune items to reach your target, \
+                 you'll be {short} rune(s) short"
+            );
         }
         let solution = Calculation::solve(need, Some(*inventory));
         *inventory -= solution;
@@ -250,7 +260,8 @@ impl Initialise {
 #[argh(subcommand, name = "info")]
 /// Tells you how many runes each rune item gives, in a neat table
 struct Information {
-    /// show the quantities from your inventory alongside the table (looks in ./elden_runes by default)
+    /// show the quantities from your inventory alongside the table (looks in
+    /// ./elden_runes by default)
     #[argh(switch)]
     with_inv: bool,
     #[argh(positional, default = "default_path()")]
@@ -266,7 +277,7 @@ impl Information {
                 Err(why) => {
                     eprintln!("Warning: failed to load inventory: {why}");
                     None
-                }
+                },
             }
         } else {
             None
@@ -279,7 +290,7 @@ impl Information {
                         table.add_row(&[String::from(name), value.to_string()]);
                     },
                 );
-            }
+            },
             Some(inv) => {
                 table.set_header([
                     "Rune name",
@@ -306,7 +317,7 @@ impl Information {
                     String::from("Overall total:"),
                     inv.total().to_string(),
                 ]);
-            }
+            },
         }
         println!("{table}");
         Ok(())
@@ -364,12 +375,12 @@ impl RuneCount {
         let mut contents = String::new();
         read_handle.read_to_string(&mut contents)?;
         let mut counts = RuneCount([0; 20]);
-        contents.lines()
-            .enumerate()
-            .try_for_each(|(line_no, line)| -> anyhow::Result<()> {
-                let (count, name) = line
-                    .split_once("x ")
-                    .context(anyhow!("line {line_no}: missing delimiter between quantity and rune name"))?;
+        contents.lines().enumerate().try_for_each(
+            |(line_no, line)| -> anyhow::Result<()> {
+                let (count, name) = line.split_once("x ").context(anyhow!(
+                    "line {line_no}: missing delimiter between quantity and \
+                     rune name"
+                ))?;
                 let count = count
                     .parse::<u32>()
                     .context(anyhow!("line {line_no}: bad rune quantity"))?;
@@ -377,10 +388,13 @@ impl RuneCount {
                     .iter()
                     .enumerate()
                     .find(|(_, rune)| **rune == name)
-                    .context(anyhow!("line {line_no}: couldn't match rune name"))?;
+                    .context(anyhow!(
+                        "line {line_no}: couldn't match rune name"
+                    ))?;
                 counts[index] += count;
                 Ok(())
-            })?;
+            },
+        )?;
         Ok(counts)
     }
 
@@ -463,9 +477,8 @@ impl fmt::Display for VerboseStats {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "In total, you're consuming {} runes, \
-            which will result in you having {} runes, \
-            leaving {} after spending",
+            "In total, you're consuming {} runes, which will result in you \
+             having {} runes, leaving {} after spending",
             self.to_consume, self.before_spending, self.after_spending,
         )
     }
