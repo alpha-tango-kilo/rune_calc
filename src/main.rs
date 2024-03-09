@@ -273,7 +273,7 @@ impl Information {
         };
         match inv {
             None => {
-                table.set_header(&["Rune name", "Rune value"]);
+                table.set_header(["Rune name", "Rune value"]);
                 RUNE_NAMES.into_iter().zip(RUNE_VALUES).for_each(
                     |(name, value)| {
                         table.add_row(&[String::from(name), value.to_string()]);
@@ -281,7 +281,7 @@ impl Information {
                 );
             }
             Some(inv) => {
-                table.set_header(&[
+                table.set_header([
                     "Rune name",
                     "Rune value",
                     "You have",
@@ -421,9 +421,7 @@ impl DerefMut for RuneCount {
 
 impl PartialOrd for RuneCount {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let my_total = self.total();
-        let other_total = other.total();
-        my_total.partial_cmp(&other_total)
+        Some(self.cmp(other))
     }
 }
 
