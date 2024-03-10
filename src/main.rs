@@ -1,3 +1,5 @@
+mod serde_impls;
+
 use std::{
     cmp::Ordering,
     fmt,
@@ -13,6 +15,7 @@ use std::{
 use anyhow::{anyhow, bail, Context};
 use argh::FromArgs;
 use comfy_table::Table;
+use serde::Deserialize;
 
 const RUNE_NAMES: [&str; 20] = [
     "Golden Rune [1]",
@@ -40,6 +43,17 @@ const RUNE_VALUES: [u32; 20] = [
     200, 400, 800, 1200, 1600, 2000, 2500, 3000, 3800, 5000, 6250, 7500, 10000,
     12500, 15000, 20000, 25000, 30000, 35000, 50000,
 ];
+
+type RuneList = Box<[(Box<str>, u32)]>;
+
+#[derive(Debug, Clone, Deserialize)]
+struct Profile {
+    game_name: Box<str>,
+    singular_rune: Box<str>,
+    plural_rune: Box<str>,
+    #[serde(with = "serde_impls::rune_list")]
+    runes: RuneList,
+}
 
 #[derive(FromArgs)]
 /// Tells you the optimal rune items to use to reach your desired amount in
@@ -512,7 +526,20 @@ fn yay_nay_prompt(prompt: &str) -> io::Result<bool> {
 
 #[cfg(test)]
 mod unit_tests {
-    use crate::{Calculation, RuneCount};
+    use std::fs;
+
+    use super::*;
+
+    #[test]
+    fn deserialises_profile() {
+        let profile = fs::read_to_string("profiles/lies_of_p.toml").unwrap();
+        let profile = toml::from_str::<Profile>(&profile).unwrap();
+        dbg!(profile);
+
+        let profile = fs::read_to_string("profiles/elden_ring.toml").unwrap();
+        let profile = toml::from_str::<Profile>(&profile).unwrap();
+        dbg!(profile);
+    }
 
     #[test]
     fn simple_calcs() {

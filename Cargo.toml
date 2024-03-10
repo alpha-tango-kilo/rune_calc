@@ -3,7 +3,6 @@ name = "elden_runes"
 description = "Tells you the optimal rune items to use to reach your desired amount in Elden Ring"
 version = "0.2.4"
 edition = "2021"
-rust-version = "1.59"
 authors = ["alpha-tango-kilo <git@heyatk.com>"]
 readme = "README.md"
 license = "GPL-3.0-only"
@@ -12,10 +11,11 @@ repository = "https://codeberg.org/alpha-tango-kilo/elden_runes"
 [dependencies]
 anyhow = "1.0"
 argh = "0.1"
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
 
 [dependencies.comfy-table]
-# MSRV 1.59
-version = "=6.0.0-rc.1"
+version = "7"
 default-features = false
 
 [profile.release]

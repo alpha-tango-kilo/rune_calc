@@ -1,0 +1,18 @@
+game_name = "Lies of P"
+singular_rune = "ergo"
+plural_rune = "ergo"
+
+[runes]
+"Dim Ergo Fragment" = 100
+"Vivid Ergo Fragment" = 300
+"Radiant Ergo Fragment" = 500
+"Resplendent Ergo Fragment" = 700
+"Dim Ergo Chunk" = 1000
+"Vivid Ergo Chunk" = 1500
+"Radiant Ergo Chunk" = 2000
+"Resplendent Ergo Chunk" = 3000
+"Dim Ergo Crystal" = 5000
+"Vivid Ergo Crystal" = 7000
+"Radiant Ergo Crystal" = 10000
+"Resplendent Ergo Crystal" = 15000
+"Ergo Crystal of the Eternal" = 25000

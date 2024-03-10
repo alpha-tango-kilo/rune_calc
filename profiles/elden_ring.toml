@@ -1,0 +1,25 @@
+game_name = "Elden Ring"
+singular_rune = "rune"
+plural_rune = "runes"
+
+[runes]
+"Golden Rune [1]" = 200
+"Golden Rune [2]" = 400
+"Golden Rune [3]" = 800
+"Golden Rune [4]" = 1200
+"Golden Rune [5]" = 1600
+"Golden Rune [6]" = 2000
+"Golden Rune [7]" = 2500
+"Golden Rune [8]" = 3000
+"Golden Rune [9]" = 3800
+"Golden Rune [10]" = 5000
+"Golden Rune [11]" = 6250
+"Golden Rune [12]" = 7500
+"Golden Rune [13]" = 10000
+"Numen's Rune" = 12500
+"Hero's Rune [1]" = 15000
+"Hero's Rune [2]" = 20000
+"Hero's Rune [3]" = 25000
+"Hero's Rune [4]" = 30000
+"Hero's Rune [5]" = 35000
+"Lord's Rune" = 50000
