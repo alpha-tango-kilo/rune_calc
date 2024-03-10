@@ -10,6 +10,7 @@ use std::{
     path::{Path, PathBuf},
     process,
     slice::SliceIndex,
+    sync::OnceLock,
 };
 
 use anyhow::{anyhow, bail, Context};
@@ -43,6 +44,25 @@ const RUNE_VALUES: [u32; 20] = [
     200, 400, 800, 1200, 1600, 2000, 2500, 3000, 3800, 5000, 6250, 7500, 10000,
     12500, 15000, 20000, 25000, 30000, 35000, 50000,
 ];
+
+static PROFILE: OnceAlready<Profile> = OnceAlready::new();
+
+#[derive(Debug)]
+struct OnceAlready<T>(OnceLock<T>);
+
+impl<T> OnceAlready<T> {
+    const fn new() -> Self {
+        OnceAlready(OnceLock::new())
+    }
+}
+
+impl<T> Deref for OnceAlready<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.get().expect("OnceAlready not initialised")
+    }
+}
 
 type RuneList = Box<[(Box<str>, u32)]>;
 
