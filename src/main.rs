@@ -76,7 +76,7 @@ impl Calculation {
             bail!("you already have all the Ergo you need");
         }
         println!(
-            "You have {} runes, and you want {} runes, right?",
+            "You have {} Ergo, and you want {} Ergo, right?",
             self.have, self.want
         );
         let (outcome, inventory) = match self.no_inv {
