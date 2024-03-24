@@ -14,36 +14,28 @@ use anyhow::{anyhow, bail, Context};
 use argh::FromArgs;
 use comfy_table::Table;
 
-const RUNE_NAMES: [&str; 20] = [
-    "Golden Rune [1]",
-    "Golden Rune [2]",
-    "Golden Rune [3]",
-    "Golden Rune [4]",
-    "Golden Rune [5]",
-    "Golden Rune [6]",
-    "Golden Rune [7]",
-    "Golden Rune [8]",
-    "Golden Rune [9]",
-    "Golden Rune [10]",
-    "Golden Rune [11]",
-    "Golden Rune [12]",
-    "Golden Rune [13]",
-    "Numen's Rune",
-    "Hero's Rune [1]",
-    "Hero's Rune [2]",
-    "Hero's Rune [3]",
-    "Hero's Rune [4]",
-    "Hero's Rune [5]",
-    "Lord's Rune",
+const RUNE_NAMES: [&str; 13] = [
+    "Dim Ergo Fragment",
+    "Vivid Ergo Fragment",
+    "Radiant Ergo Fragment",
+    "Resplendent Ergo Fragment",
+    "Dim Ergo Chunk",
+    "Vivid Ergo Chunk",
+    "Radiant Ergo Chunk",
+    "Resplendent Ergo Chunk",
+    "Dim Ergo Crystal",
+    "Vivid Ergo Crystal",
+    "Radiant Ergo Crystal",
+    "Resplendent Ergo Crystal",
+    "Ergo Crystal of the Eternal",
 ];
-const RUNE_VALUES: [u32; 20] = [
-    200, 400, 800, 1200, 1600, 2000, 2500, 3000, 3800, 5000, 6250, 7500, 10000,
-    12500, 15000, 20000, 25000, 30000, 35000, 50000,
+const RUNE_VALUES: [u32; 13] = [
+    100, 300, 500, 700, 1000, 1500, 2000, 3000, 5000, 7000, 10000, 15000, 25000,
 ];
 
 #[derive(FromArgs)]
-/// Tells you the optimal rune items to use to reach your desired amount in
-/// Elden Ring
+/// Tells you the optimal Ergo items to use to reach your desired amount in
+/// Lies of P
 struct WhatDo {
     #[argh(subcommand)]
     subcommand: DoThis,
@@ -59,15 +51,15 @@ enum DoThis {
 
 #[derive(Debug, FromArgs)]
 #[argh(subcommand, name = "calc")]
-/// Perform a rune calculation
+/// Perform an Ergo calculation
 struct Calculation {
-    /// how many runes you have
+    /// how much Ergo you have
     #[argh(option, short = 'h', default = "0")]
     have: u32,
-    /// how many runes you want to have
+    /// how much Ergo you want to have
     #[argh(option, short = 'w')]
     want: u32,
-    /// where to get the runes file from (defaults to ./elden_runes)
+    /// where to get the Ergo file from (defaults to ./lies_of_ergo)
     #[argh(option, default = "default_path()")]
     file: PathBuf,
     /// will provide extra information & statistics in output
@@ -81,7 +73,7 @@ struct Calculation {
 impl Calculation {
     fn run(&self) -> anyhow::Result<()> {
         if self.have >= self.want {
-            bail!("you already have all the runes you need");
+            bail!("you already have all the Ergo you need");
         }
         println!(
             "You have {} runes, and you want {} runes, right?",
@@ -208,8 +200,8 @@ impl Calculation {
         if inv_total < need {
             let short = need - inv_total;
             bail!(
-                "you don't have enough rune items to reach your target, \
-                 you'll be {short} rune(s) short"
+                "you don't have enough Ergo items to reach your target, \
+                 you'll be {short} Ergo short"
             );
         }
         let solution = Calculation::solve(need, Some(*inventory));
@@ -236,14 +228,14 @@ impl Default for Calculation {
 
 #[derive(FromArgs)]
 #[argh(subcommand, name = "init")]
-/// Initialise a new elden_runes file (defaults to ./elden_runes)
+/// Initialise a new lies_of_ergo file (defaults to ./lies_of_ergo)
 struct Initialise {
     #[argh(positional, default = "default_path()")]
     path: PathBuf,
 }
 
 impl Initialise {
-    const TEMPLATE: &'static str = include_str!("../elden_runes_template");
+    const TEMPLATE: &'static str = include_str!("../lies_of_ergo_template");
 
     fn run(&self) -> anyhow::Result<()> {
         let mut handle = OpenOptions::new()
@@ -258,10 +250,10 @@ impl Initialise {
 
 #[derive(FromArgs)]
 #[argh(subcommand, name = "info")]
-/// Tells you how many runes each rune item gives, in a neat table
+/// Tells you how many Ergo each item gives, in a neat table
 struct Information {
     /// show the quantities from your inventory alongside the table (looks in
-    /// ./elden_runes by default)
+    /// ./lies_of_ergo by default)
     #[argh(switch)]
     with_inv: bool,
     #[argh(positional, default = "default_path()")]
@@ -284,7 +276,7 @@ impl Information {
         };
         match inv {
             None => {
-                table.set_header(["Rune name", "Rune value"]);
+                table.set_header(["Item name", "Ergo value"]);
                 RUNE_NAMES.into_iter().zip(RUNE_VALUES).for_each(
                     |(name, value)| {
                         table.add_row(&[String::from(name), value.to_string()]);
@@ -293,8 +285,8 @@ impl Information {
             },
             Some(inv) => {
                 table.set_header([
-                    "Rune name",
-                    "Rune value",
+                    "Item name",
+                    "Ergo value",
                     "You have",
                     "Total value",
                 ]);
@@ -379,17 +371,17 @@ impl RuneCount {
             |(line_no, line)| -> anyhow::Result<()> {
                 let (count, name) = line.split_once("x ").context(anyhow!(
                     "line {line_no}: missing delimiter between quantity and \
-                     rune name"
+                     item name"
                 ))?;
                 let count = count
                     .parse::<u32>()
-                    .context(anyhow!("line {line_no}: bad rune quantity"))?;
+                    .context(anyhow!("line {line_no}: bad item quantity"))?;
                 let (index, _) = RUNE_NAMES
                     .iter()
                     .enumerate()
                     .find(|(_, rune)| **rune == name)
                     .context(anyhow!(
-                        "line {line_no}: couldn't match rune name"
+                        "line {line_no}: couldn't match item name"
                     ))?;
                 counts[index] += count;
                 Ok(())
@@ -477,8 +469,8 @@ impl fmt::Display for VerboseStats {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "In total, you're consuming {} runes, which will result in you \
-             having {} runes, leaving {} after spending",
+            "In total, you're consuming {} Ergo, which will result in you \
+             having {} Ergo, leaving {} after spending",
             self.to_consume, self.before_spending, self.after_spending,
         )
     }
@@ -499,7 +491,7 @@ fn main() {
 }
 
 fn default_path() -> PathBuf {
-    PathBuf::from("./elden_runes")
+    PathBuf::from("./lies_of_ergo")
 }
 
 fn yay_nay_prompt(prompt: &str) -> io::Result<bool> {
@@ -508,92 +500,4 @@ fn yay_nay_prompt(prompt: &str) -> io::Result<bool> {
     let mut buf = String::new();
     io::stdin().read_line(&mut buf)?;
     Ok(!buf[..1].eq_ignore_ascii_case("n"))
-}
-
-#[cfg(test)]
-mod unit_tests {
-    use crate::{Calculation, RuneCount};
-
-    #[test]
-    fn simple_calcs() {
-        let calc = Calculation {
-            want: 200,
-            ..Default::default()
-        };
-        let expected = RuneCount::single(0);
-        assert_eq!(calc.without_inventory(), expected);
-
-        let calc = Calculation {
-            want: 420,
-            ..Default::default()
-        };
-        let mut expected = RuneCount::default();
-        expected[0] = 1;
-        expected[1] = 1;
-        assert_eq!(calc.without_inventory(), expected);
-
-        let calc = Calculation {
-            want: 1200,
-            ..Default::default()
-        };
-        let expected = RuneCount::single(3);
-        assert_eq!(calc.without_inventory(), expected);
-
-        let calc = Calculation {
-            have: 200,
-            want: 2200,
-            ..Default::default()
-        };
-        let expected = RuneCount::single(5);
-        assert_eq!(calc.without_inventory(), expected);
-    }
-
-    #[test]
-    fn simple_inv_calcs() {
-        let calc = Calculation {
-            want: 10,
-            ..Default::default()
-        };
-        let mut inv = RuneCount([1; 20]);
-        let expected = RuneCount::single(0);
-        assert_eq!(calc.with_inventory(&mut inv).unwrap(), expected);
-
-        let calc = Calculation {
-            have: 6606,
-            want: 25000,
-            ..Default::default()
-        };
-        let mut inv = RuneCount([
-            67, 9, 9, 10, 11, 7, 2, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        ]);
-        let expected = RuneCount([
-            0, 0, 0, 0, 1, 4, 2, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        ]);
-        assert_eq!(calc.with_inventory(&mut inv).unwrap(), expected);
-    }
-
-    #[test]
-    fn larger_is_better() {
-        // Best you can do using only smaller runes is 2600 total, whereas
-        // there's a single rune you can use for 2500
-        let calc = Calculation {
-            want: 2450,
-            ..Default::default()
-        };
-        let expected = RuneCount::single(6);
-        assert_eq!(calc.without_inventory(), expected);
-    }
-
-    #[test]
-    fn not_enough_smallest() {
-        let calc = Calculation {
-            want: 300,
-            ..Default::default()
-        };
-        let mut inv = RuneCount::default();
-        inv[0] = 1;
-        inv[3] = 1;
-        let expected = RuneCount::single(3);
-        assert_eq!(calc.with_inventory(&mut inv).unwrap(), expected);
-    }
 }

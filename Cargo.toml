@@ -1,6 +1,6 @@
 [package]
-name = "elden_runes"
-description = "Tells you the optimal rune items to use to reach your desired amount in Elden Ring"
+name = "lies_of_ergo"
+description = "Tells you the optimal Ergo items to use to reach your desired amount in Lies of P"
 version = "0.2.4"
 edition = "2021"
 rust-version = "1.59"
