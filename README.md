@@ -1,12 +1,11 @@
-# elden_runes
+# lies_of_ergo
 
-Tells you how many of which rune items you ought to use to get to your desired amount.
-Not very smart yet, but I'm working on it.
+Tells you how many of which Ergo items you ought to use to get to your desired amount
 
 ## Installation
 
 ```shell
-cargo install --git https://codeberg.org/alpha-tango-kilo/elden_runes
+cargo install --git https://codeberg.org/alpha-tango-kilo/elden_runes --branch lies-of-p
 ```
 
 (Add `--force` if updating)
@@ -14,31 +13,31 @@ cargo install --git https://codeberg.org/alpha-tango-kilo/elden_runes
 ## Usage
 
 ```
-elden_runes <command> [<args>] 
+lies_of_ergo <command> [<args>]
 
-Tells you the optimal rune items to use to reach your desired amount in Elden Ring
+Tells you the optimal Ergo items to use to reach your desired amount in Lies of P
 
 Options:
   --help            display usage information
 
 Commands:
-  init              Initialise a new elden_runes file
-  calc              Perform a rune calculation
-  info              Tells you how many runes each rune item gives, in a neat
-                    table
+  init              Initialise a new lies_of_ergo file (defaults to
+                    ./lies_of_ergo)
+  calc              Perform an Ergo calculation
+  info              Tells you how many Ergo each item gives, in a neat table
 ```
 
 ### Calculate
 
 ```
-elden_runes calc [-h <have>] -w <want> [--file <file>] [-v] 
+lies_of_ergo calc [-h <have>] -w <want> [--file <file>] [-v] [--no-inv]
 
-Perform a rune calculation
+Perform an Ergo calculation
 
 Options:
-  -h, --have        how many runes you have
-  -w, --want        how many runes you want to have
-  --file            where to get the runes file from (defaults to ./elden_runes)
+  -h, --have        how much Ergo you have
+  -w, --want        how much Ergo you want to have
+  --file            where to get the Ergo file from (defaults to ./lies_of_ergo)
   -v, --verbose     will provide extra information & statistics in output
   --no-inv          disable inventory look-up (prevents auto-discovery)
   --help            display usage information
@@ -47,9 +46,9 @@ Options:
 ### Initialise
 
 ```
-elden_runes init [<path>]
+lies_of_ergo init [<path>]
 
-Initialise a new elden_runes file (defaults to ./elden_runes)
+Initialise a new lies_of_ergo file (defaults to ./lies_of_ergo)
 
 Positional Arguments:
   path
@@ -61,9 +60,9 @@ Options:
 ### Information
 
 ```
-elden_runes info [--with-inv] [<path>] 
- 
-Tells you how many runes each rune item gives, in a neat table
+lies_of_ergo info [<path>] [--with-inv]
+
+Tells you how many Ergo each item gives, in a neat table
 
 Positional Arguments:
   path
