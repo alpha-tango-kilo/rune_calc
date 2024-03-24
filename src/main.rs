@@ -263,6 +263,7 @@ struct Information {
 impl Information {
     fn run(&self) -> anyhow::Result<()> {
         let mut table = Table::new();
+        table.load_preset(comfy_table::presets::UTF8_FULL);
         let inv = if self.with_inv {
             match File::open(&self.path) {
                 Ok(mut handle) => Some(RuneCount::load(&mut handle)?),
